@@ -10,10 +10,29 @@
     "Other"
   ],
   "activationEvents": [
-    "onCommand:ursa-coder.start"
+    "onCommand:ursa-coder.start",
+    "onView:ursa-coder.chatView"
   ],
   "main": "./out/extension.js",
   "contributes": {
+    "viewsContainers": {
+      "activitybar": [
+        {
+          "id": "ursaCoder",
+          "title": "URSA Coder",
+          "icon": "$(robot)"
+        }
+      ]
+    },
+    "views": {
+      "ursaCoder": [
+        {
+          "type": "webview",
+          "id": "ursa-coder.chatView",
+          "name": "Chat"
+        }
+      ]
+    },
     "commands": [
       {
         "command": "ursa-coder.start",
