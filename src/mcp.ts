@@ -23,7 +23,7 @@ export class McpBridge {
         throw new Error(`Failed to fetch tools: ${response.statusText}`);
       }
       
-      const data = await response.json();
+      const data = (await response.json()) as { tools?: ToolDefinition[] };
       this.availableTools = data.tools || [];
       console.log(`[McpBridge] Connected successfully. Found ${this.availableTools.length} tools:`, this.availableTools.map(t => t.name));
     } catch (error) {
@@ -68,7 +68,7 @@ export class McpBridge {
         throw new Error(`Tool execution failed: ${response.statusText}`);
       }
 
-      const result = await response.json();
+      const result = (await response.json()) as { result: string };
       console.log(`[McpBridge] Tool result:`, result);
       
       return result;

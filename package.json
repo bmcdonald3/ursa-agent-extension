@@ -11,7 +11,8 @@
   ],
   "activationEvents": [
     "onCommand:ursa-coder.start",
-    "onView:ursa-coder.chatView"
+    "onView:ursa-coder.chatView",
+    "onCommand:ursa-coder.forceTest"
   ],
   "main": "./out/extension.js",
   "contributes": {
