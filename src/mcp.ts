@@ -1,3 +1,6 @@
+import { Client } from '@modelcontextprotocol/sdk/client/index.js';
+import { SSEClientTransport } from '@modelcontextprotocol/sdk/client/sse.js';
+
 export interface ToolDefinition {
   name: string;
   description: string;
@@ -9,6 +12,7 @@ export interface ToolDefinition {
 }
 
 export class McpBridge {
+  private client: Client | null = null;
   private ursaUrl: string | null = null;
   private availableTools: ToolDefinition[] = [];
 
@@ -16,23 +20,32 @@ export class McpBridge {
     console.log(`[McpBridge] Connecting to URSA MCP server at: ${url}`);
     this.ursaUrl = url;
     
-    const toolsUrl = `${url}/tools`;
-    console.log(`[McpBridge] Fetching tools from: ${toolsUrl}`);
-    
     try {
-      // Fetch available tools from URSA server
-      const response = await fetch(toolsUrl);
-      if (!response.ok) {
-        console.error(`[McpBridge] ❌ Failed to fetch tools from ${toolsUrl}`);
-        console.error(`[McpBridge] Status: ${response.status} ${response.statusText}`);
-        throw new Error(`Failed to fetch tools from ${toolsUrl}: ${response.status} ${response.statusText}`);
-      }
+      // Create SSE transport for URSA server
+      const transport = new SSEClientTransport(new URL(url));
       
-      const data = (await response.json()) as { tools?: ToolDefinition[] };
-      this.availableTools = data.tools || [];
-      console.log(`[McpBridge] Connected successfully. Found ${this.availableTools.length} tools:`, this.availableTools.map(t => t.name));
+      // Create and connect MCP client
+      this.client = new Client({
+        name: 'ursa-coder-extension',
+        version: '1.0.0'
+      }, {
+        capabilities: {}
+      });
+      
+      await this.client.connect(transport);
+      console.log(`[McpBridge] ✅ Connected to MCP server via SSE`);
+      
+      // List available tools
+      const toolsResponse = await this.client.listTools();
+      this.availableTools = toolsResponse.tools.map(tool => ({
+        name: tool.name,
+        description: tool.description || '',
+        inputSchema: tool.inputSchema as any
+      }));
+      
+      console.log(`[McpBridge] Found ${this.availableTools.length} tools:`, this.availableTools.map(t => t.name));
     } catch (error) {
-      console.error(`[McpBridge] Connection failed:`, error);
+      console.error(`[McpBridge] ❌ Connection failed:`, error);
       throw error;
     }
   }
@@ -43,48 +56,39 @@ export class McpBridge {
   }
 
   async callTool(name: string, args: Record<string, any>): Promise<{ result: string }> {
-    if (!this.ursaUrl) {
+    if (!this.client) {
       throw new Error('McpBridge not connected to URSA server');
     }
 
     console.log(`[McpBridge] Calling tool: ${name}`);
     console.log(`[McpBridge] Tool arguments:`, JSON.stringify(args, null, 2));
     
-    const payload = {
-      tool: name,
-      arguments: args
-    };
-    
-    const callUrl = `${this.ursaUrl}/call`;
-    
-    console.log(`[McpBridge] 🚀 SENDING REQUEST TO URSA SERVER`);
-    console.log(`[McpBridge] URL: ${callUrl}`);
-    console.log(`[McpBridge] Method: POST`);
-    console.log(`[McpBridge] Payload:`, JSON.stringify(payload, null, 2));
+    console.log(`[McpBridge] 🚀 Executing tool via MCP SDK`);
     
     try {
-      const response = await fetch(callUrl, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify(payload)
+      const result = await this.client.callTool({
+        name,
+        arguments: args
       });
-
-      if (!response.ok) {
-        console.error(`[McpBridge] ❌ Tool execution failed`);
-        console.error(`[McpBridge] URL: ${callUrl}`);
-        console.error(`[McpBridge] Status: ${response.status} ${response.statusText}`);
-        throw new Error(`Tool execution failed at ${callUrl}: ${response.status} ${response.statusText}`);
-      }
-
-      const result = (await response.json()) as { result: string };
-      console.log(`[McpBridge] Tool result:`, result);
       
-      return result;
+      console.log(`[McpBridge] ✅ Tool result:`, result);
+      
+      // Extract content from MCP response
+      const content = (result as any).content?.[0];
+      const resultText = content?.type === 'text' ? content.text : JSON.stringify(result);
+      
+      return { result: resultText };
     } catch (error) {
-      console.error(`[McpBridge] Tool execution error:`, error);
+      console.error(`[McpBridge] ❌ Tool execution error:`, error);
       throw error;
+    }
+  }
+
+  async disconnect(): Promise<void> {
+    if (this.client) {
+      await this.client.close();
+      this.client = null;
+      console.log(`[McpBridge] Disconnected from URSA server`);
     }
   }
 }
