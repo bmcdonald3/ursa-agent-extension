@@ -19,6 +19,22 @@ export class ChatViewProvider implements vscode.WebviewViewProvider {
         message: status
       });
     });
+
+    // Set up tool approval callback
+    this._orchestrator.setToolApprovalCallback(async (request) => {
+      return new Promise((resolve) => {
+        // Send approval request to webview
+        this._view?.webview.postMessage({
+          type: 'showApprovalCard',
+          toolName: request.toolName,
+          toolArgs: request.toolArgs,
+          toolCallId: request.toolCallId
+        });
+
+        // Store the resolver to be called when user approves/denies
+        (this as any)._pendingApproval = { resolve, toolCallId: request.toolCallId };
+      });
+    });
   }
 
   public resolveWebviewView(
@@ -82,16 +98,49 @@ export class ChatViewProvider implements vscode.WebviewViewProvider {
             this._currentMode
           );
 
-          // Send response back to webview
-          this._view?.webview.postMessage({
-            type: 'aiResponse',
-            content: response
-          });
+          // Only send response if it's not an approval request
+          if (response !== '__APPROVAL_REQUESTED__') {
+            this._view?.webview.postMessage({
+              type: 'aiResponse',
+              content: response
+            });
+          }
         } catch (error) {
           this._view?.webview.postMessage({
             type: 'error',
             message: `Error: ${error instanceof Error ? error.message : String(error)}`
           });
+        }
+        break;
+
+      case 'approveTool':
+        // User approved the tool execution
+        if ((this as any)._pendingApproval && (this as any)._pendingApproval.toolCallId === message.toolCallId) {
+          (this as any)._pendingApproval.resolve(true);
+          (this as any)._pendingApproval = null;
+
+          // Execute the tool
+          try {
+            const result = await this._orchestrator.executeApprovedTool(message.toolCallId);
+            this._view?.webview.postMessage({
+              type: 'toolExecuted',
+              toolCallId: message.toolCallId,
+              result: result
+            });
+          } catch (error) {
+            this._view?.webview.postMessage({
+              type: 'error',
+              message: `Tool execution failed: ${error instanceof Error ? error.message : String(error)}`
+            });
+          }
+        }
+        break;
+
+      case 'denyTool':
+        // User denied the tool execution
+        if ((this as any)._pendingApproval && (this as any)._pendingApproval.toolCallId === message.toolCallId) {
+          (this as any)._pendingApproval.resolve(false);
+          (this as any)._pendingApproval = null;
         }
         break;
     }
@@ -294,6 +343,74 @@ export class ChatViewProvider implements vscode.WebviewViewProvider {
       opacity: 0.5;
       cursor: not-allowed;
     }
+
+    .approval-card {
+      align-self: flex-start;
+      background-color: var(--vscode-editorWidget-background);
+      border: 2px solid var(--vscode-statusBarItem-warningBackground);
+      border-radius: 8px;
+      padding: 12px;
+      max-width: 85%;
+    }
+
+    .approval-card-header {
+      font-weight: bold;
+      color: var(--vscode-statusBarItem-warningForeground);
+      margin-bottom: 8px;
+      display: flex;
+      align-items: center;
+      gap: 6px;
+    }
+
+    .approval-card-tool {
+      font-family: 'Courier New', monospace;
+      background-color: var(--vscode-input-background);
+      padding: 8px;
+      border-radius: 4px;
+      margin: 8px 0;
+      font-size: 12px;
+    }
+
+    .approval-card-args {
+      margin-top: 4px;
+      font-size: 11px;
+      color: var(--vscode-descriptionForeground);
+      white-space: pre-wrap;
+    }
+
+    .approval-card-actions {
+      display: flex;
+      gap: 8px;
+      margin-top: 12px;
+    }
+
+    .approval-btn {
+      flex: 1;
+      padding: 6px 12px;
+      border: none;
+      border-radius: 4px;
+      cursor: pointer;
+      font-size: 13px;
+      font-weight: bold;
+    }
+
+    .approval-btn.approve {
+      background-color: var(--vscode-button-background);
+      color: var(--vscode-button-foreground);
+    }
+
+    .approval-btn.approve:hover {
+      background-color: var(--vscode-button-hoverBackground);
+    }
+
+    .approval-btn.deny {
+      background-color: var(--vscode-button-secondaryBackground);
+      color: var(--vscode-button-secondaryForeground);
+    }
+
+    .approval-btn.deny:hover {
+      background-color: var(--vscode-button-secondaryHoverBackground);
+    }
   </style>
 </head>
 <body>
@@ -430,6 +547,63 @@ export class ChatViewProvider implements vscode.WebviewViewProvider {
         case 'toolStatus':
           // Show tool execution status
           addMessage(message.message, 'thinking');
+          break;
+
+        case 'showApprovalCard':
+          // Remove thinking message
+          const thinkingMsg2 = chatContainer.querySelector('.message.thinking');
+          if (thinkingMsg2) {
+            thinkingMsg2.remove();
+          }
+
+          // Create approval card
+          const approvalCard = document.createElement('div');
+          approvalCard.className = 'approval-card';
+          approvalCard.setAttribute('data-tool-call-id', message.toolCallId);
+          
+          approvalCard.innerHTML = \`
+            <div class="approval-card-header">
+              ⚠️ Tool Execution Request
+            </div>
+            <div class="approval-card-tool">
+              <strong>\${message.toolName}</strong>
+              <div class="approval-card-args">\${JSON.stringify(message.toolArgs, null, 2)}</div>
+            </div>
+            <div class="approval-card-actions">
+              <button class="approval-btn approve">✓ Approve</button>
+              <button class="approval-btn deny">✗ Deny</button>
+            </div>
+          \`;
+          
+          chatContainer.appendChild(approvalCard);
+          chatContainer.scrollTop = chatContainer.scrollHeight;
+          
+          // Add event listeners
+          const approveBtn = approvalCard.querySelector('.approve');
+          const denyBtn = approvalCard.querySelector('.deny');
+          
+          approveBtn.addEventListener('click', () => {
+            vscode.postMessage({
+              command: 'approveTool',
+              toolCallId: message.toolCallId
+            });
+            approvalCard.remove();
+          });
+          
+          denyBtn.addEventListener('click', () => {
+            vscode.postMessage({
+              command: 'denyTool',
+              toolCallId: message.toolCallId
+            });
+            approvalCard.remove();
+            addMessage('Tool execution denied by user.', 'ai');
+            sendBtn.disabled = false;
+          });
+          break;
+
+        case 'toolExecuted':
+          addMessage(\`Tool executed successfully.\`, 'ai');
+          sendBtn.disabled = false;
           break;
 
         case 'connectionStatus':

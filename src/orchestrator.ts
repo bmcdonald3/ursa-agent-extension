@@ -5,8 +5,16 @@ import { McpBridge, ToolDefinition } from './mcp';
 const PLAN_MODE_ALLOWED_TOOLS = ['plan', 'arxiv_search', 'search', 'read', 'list', 'read_file', 'list_files'];
 const BLOCKED_TOOLS_IN_PLAN = ['execute', 'write', 'delete', 'modify', 'run', 'write_to_file'];
 
+export interface ToolApprovalRequest {
+  toolName: string;
+  toolArgs: Record<string, any>;
+  toolCallId: string;
+}
+
 export class Orchestrator {
   private toolStatusCallback?: (status: string) => void;
+  private toolApprovalCallback?: (request: ToolApprovalRequest) => Promise<boolean>;
+  private pendingToolCalls: Map<string, any> = new Map();
 
   constructor(
     private llmClient: LLMClient,
@@ -16,6 +24,33 @@ export class Orchestrator {
 
   setToolStatusCallback(callback: (status: string) => void) {
     this.toolStatusCallback = callback;
+  }
+
+  setToolApprovalCallback(callback: (request: ToolApprovalRequest) => Promise<boolean>) {
+    this.toolApprovalCallback = callback;
+  }
+
+  async executeApprovedTool(toolCallId: string): Promise<string> {
+    const toolCall = this.pendingToolCalls.get(toolCallId);
+    if (!toolCall) {
+      throw new Error(`No pending tool call found for ID: ${toolCallId}`);
+    }
+
+    const { name, args } = toolCall;
+    
+    // Send status update
+    if (this.toolStatusCallback) {
+      this.toolStatusCallback(`[URSA] Executing ${name}...`);
+    }
+
+    try {
+      const result = await this.mcpBridge.callTool(name, args);
+      this.pendingToolCalls.delete(toolCallId);
+      return JSON.stringify(result);
+    } catch (error) {
+      this.pendingToolCalls.delete(toolCallId);
+      throw error;
+    }
   }
 
   async processPrompt(prompt: string, mode: 'plan' | 'act' = 'plan'): Promise<string> {
@@ -60,6 +95,33 @@ Your response should ONLY contain the tool call. Do not explain your actions unl
 
     // Check if the response contains tool calls
     if (response.toolCalls && response.toolCalls.length > 0) {
+      // In Act mode, request approval for tool execution
+      if (mode === 'act' && this.toolApprovalCallback) {
+        for (const toolCall of response.toolCalls) {
+          const toolName = toolCall.function.name;
+          const args = JSON.parse(toolCall.function.arguments);
+          
+          // Store pending tool call
+          this.pendingToolCalls.set(toolCall.id, { name: toolName, args });
+          
+          // Request approval from UI
+          const approved = await this.toolApprovalCallback({
+            toolName,
+            toolArgs: args,
+            toolCallId: toolCall.id
+          });
+          
+          if (!approved) {
+            this.pendingToolCalls.delete(toolCall.id);
+            return `Tool execution cancelled by user.`;
+          }
+        }
+        
+        // Return a special marker that approval is needed
+        return '__APPROVAL_REQUESTED__';
+      }
+      
+      // Auto-execute in Plan mode (for safe tools only)
       const toolResults: Array<{ role: string; content: string; tool_call_id?: string; name?: string }> = [];
 
       for (const toolCall of response.toolCalls) {
@@ -79,7 +141,7 @@ Your response should ONLY contain the tool call. Do not explain your actions unl
         }
 
         // Only call allowed tools
-        if (mode === 'act' || PLAN_MODE_ALLOWED_TOOLS.includes(toolName)) {
+        if (mode === 'plan' && PLAN_MODE_ALLOWED_TOOLS.includes(toolName)) {
           // Send status update to UI
           if (this.toolStatusCallback) {
             this.toolStatusCallback(`[URSA] Executing ${toolName}...`);
