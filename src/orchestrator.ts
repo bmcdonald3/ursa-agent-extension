@@ -1,9 +1,9 @@
 import { LLMClient } from './llmClient';
-import { McpBridge } from './mcp';
+import { McpBridge, ToolDefinition } from './mcp';
 
 // Tool access control lists
-const PLAN_MODE_ALLOWED_TOOLS = ['plan', 'arxiv_search', 'search', 'read', 'list'];
-const BLOCKED_TOOLS_IN_PLAN = ['execute', 'write', 'delete', 'modify', 'run'];
+const PLAN_MODE_ALLOWED_TOOLS = ['plan', 'arxiv_search', 'search', 'read', 'list', 'read_file', 'list_files'];
+const BLOCKED_TOOLS_IN_PLAN = ['execute', 'write', 'delete', 'modify', 'run', 'write_to_file'];
 
 export class Orchestrator {
   private toolStatusCallback?: (status: string) => void;
@@ -22,27 +22,28 @@ export class Orchestrator {
     // Add mode-specific system prompt
     const systemPrompt = mode === 'plan'
       ? "You are in PLAN MODE. You can only propose plans, search for information, and read data. Do NOT attempt to execute code or modify files. Use tools like 'plan' and 'arxiv_search' only."
-      : `You are an autonomous agent with direct access to the user's computer via tools.
-CRITICAL: If a user asks you to create a file, run a command, or search for information, you MUST use the provided tools (like 'write_to_file' or 'execute') immediately.
-DO NOT give the user instructions on how to do it themselves. DO NOT just provide code blocks in chat.
-Your goal is to perform the action, not describe it.`;
+      : `You are a VS Code Automation Agent. You HAVE access to tools.
+If the user asks to create a file or run a command, you MUST NOT write a markdown code block.
+Instead, you MUST invoke the 'execute' or 'write_to_file' tool.
+Your response should ONLY contain the tool call. Do not explain your actions unless the tool fails.`;
 
     // Get available tools from MCP bridge
     const availableTools = await this.mcpBridge.listTools();
     
-    // Convert MCP tools to OpenAI format
+    // Convert MCP tools to OpenAI format with complete parameter schemas
     const tools = availableTools.map(tool => ({
       type: 'function' as const,
       function: {
         name: tool.name,
         description: tool.description,
-        parameters: {
-          type: 'object',
-          properties: {},
-          required: []
-        }
+        parameters: tool.inputSchema
       }
     }));
+
+    // Debug logging to verify tools are correctly formatted
+    if (tools.length > 0) {
+      console.log(`[Orchestrator] Sending ${tools.length} tools to LLM:`, JSON.stringify(tools, null, 2));
+    }
 
     // Initial LLM call with tools
     let messages: Array<{ role: string; content: string }> = [
@@ -122,6 +123,16 @@ Your goal is to perform the action, not describe it.`;
         });
 
         return finalResponse.content;
+      }
+    }
+
+    // Fallback: Detect markdown code blocks in the response (for "lazy" models)
+    if (mode === 'act' && response.content) {
+      const codeBlockMatch = response.content.match(/```(?:bash|sh|shell)?\n([\s\S]+?)\n```/);
+      if (codeBlockMatch) {
+        const command = codeBlockMatch[1].trim();
+        console.warn(`[Orchestrator] Model provided code block instead of tool call: ${command}`);
+        return `⚠️ I noticed you provided a command in a code block:\n\`\`\`\n${command}\n\`\`\`\n\nShould I execute this via URSA? (This is a fallback for models that don't use tool calls properly)`;
       }
     }
 

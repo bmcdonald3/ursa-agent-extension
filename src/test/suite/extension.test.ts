@@ -32,8 +32,26 @@ suite('URSA-Coder Integration Test Suite', () => {
     test('McpBridge connects and retrieves available URSA tools', async () => {
         // Mock the MCP SDK client behavior
         const mockTools = [
-            { name: 'plan', description: 'Formulate an execution plan' },
-            { name: 'execute', description: 'Run code in sandbox' }
+            { 
+                name: 'plan', 
+                description: 'Formulate an execution plan',
+                inputSchema: {
+                    type: 'object',
+                    properties: {},
+                    required: []
+                }
+            },
+            { 
+                name: 'execute', 
+                description: 'Run code in sandbox',
+                inputSchema: {
+                    type: 'object',
+                    properties: {
+                        command: { type: 'string' }
+                    },
+                    required: ['command']
+                }
+            }
         ];
         sinon.stub(mcpBridge, 'connect').resolves();
         sinon.stub(mcpBridge, 'listTools').resolves(mockTools);
