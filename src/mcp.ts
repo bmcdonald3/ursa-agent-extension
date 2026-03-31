@@ -16,11 +16,16 @@ export class McpBridge {
     console.log(`[McpBridge] Connecting to URSA MCP server at: ${url}`);
     this.ursaUrl = url;
     
+    const toolsUrl = `${url}/tools`;
+    console.log(`[McpBridge] Fetching tools from: ${toolsUrl}`);
+    
     try {
       // Fetch available tools from URSA server
-      const response = await fetch(`${url}/tools`);
+      const response = await fetch(toolsUrl);
       if (!response.ok) {
-        throw new Error(`Failed to fetch tools: ${response.statusText}`);
+        console.error(`[McpBridge] ❌ Failed to fetch tools from ${toolsUrl}`);
+        console.error(`[McpBridge] Status: ${response.status} ${response.statusText}`);
+        throw new Error(`Failed to fetch tools from ${toolsUrl}: ${response.status} ${response.statusText}`);
       }
       
       const data = (await response.json()) as { tools?: ToolDefinition[] };
@@ -50,13 +55,15 @@ export class McpBridge {
       arguments: args
     };
     
+    const callUrl = `${this.ursaUrl}/call`;
+    
     console.log(`[McpBridge] 🚀 SENDING REQUEST TO URSA SERVER`);
-    console.log(`[McpBridge] URL: ${this.ursaUrl}/call`);
+    console.log(`[McpBridge] URL: ${callUrl}`);
     console.log(`[McpBridge] Method: POST`);
     console.log(`[McpBridge] Payload:`, JSON.stringify(payload, null, 2));
     
     try {
-      const response = await fetch(`${this.ursaUrl}/call`, {
+      const response = await fetch(callUrl, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -65,7 +72,10 @@ export class McpBridge {
       });
 
       if (!response.ok) {
-        throw new Error(`Tool execution failed: ${response.statusText}`);
+        console.error(`[McpBridge] ❌ Tool execution failed`);
+        console.error(`[McpBridge] URL: ${callUrl}`);
+        console.error(`[McpBridge] Status: ${response.status} ${response.statusText}`);
+        throw new Error(`Tool execution failed at ${callUrl}: ${response.status} ${response.statusText}`);
       }
 
       const result = (await response.json()) as { result: string };
