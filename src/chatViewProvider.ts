@@ -11,7 +11,15 @@ export class ChatViewProvider implements vscode.WebviewViewProvider {
     private readonly _orchestrator: Orchestrator,
     private readonly _modelId: string,
     private readonly _provider: string
-  ) {}
+  ) {
+    // Set up tool status callback
+    this._orchestrator.setToolStatusCallback((status: string) => {
+      this._view?.webview.postMessage({
+        type: 'toolStatus',
+        message: status
+      });
+    });
+  }
 
   public resolveWebviewView(
     webviewView: vscode.WebviewView,
@@ -417,6 +425,11 @@ export class ChatViewProvider implements vscode.WebviewViewProvider {
         case 'error':
           addMessage(message.message, 'error');
           sendBtn.disabled = false;
+          break;
+
+        case 'toolStatus':
+          // Show tool execution status
+          addMessage(message.message, 'thinking');
           break;
 
         case 'connectionStatus':

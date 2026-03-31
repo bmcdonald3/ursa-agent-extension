@@ -27,11 +27,28 @@ export class LLMClient {
   async complete(params: {
     messages: Array<{ role: string; content: string }>;
     model?: string;
+    tools?: Array<{
+      type: string;
+      function: {
+        name: string;
+        description: string;
+        parameters: any;
+      };
+    }>;
+    tool_choice?: string | { type: string; function: { name: string } };
   }): Promise<{ content: string; toolCalls: any[] }> {
-    const response = await this.client.chat.completions.create({
+    const completionParams: any = {
       model: params.model || 'default-model',
       messages: params.messages as any[]
-    });
+    };
+
+    // Add tools if provided
+    if (params.tools && params.tools.length > 0) {
+      completionParams.tools = params.tools;
+      completionParams.tool_choice = params.tool_choice || 'auto';
+    }
+
+    const response = await this.client.chat.completions.create(completionParams);
 
     const message = response.choices[0]?.message;
     return {
