@@ -1,0 +1,66 @@
+{
+  "name": "ursa-coder",
+  "displayName": "URSA Coder",
+  "description": "VS Code extension integrating OpenRouter and LANL URSA MCP",
+  "version": "0.0.1",
+  "engines": {
+    "vscode": "^1.85.0"
+  },
+  "categories": [
+    "Other"
+  ],
+  "activationEvents": [
+    "onCommand:ursa-coder.start"
+  ],
+  "main": "./out/extension.js",
+  "contributes": {
+    "commands": [
+      {
+        "command": "ursa-coder.start",
+        "title": "URSA Coder: Start"
+      }
+    ],
+    "configuration": {
+      "title": "URSA Coder",
+      "properties": {
+        "ursaCoder.apiKey": {
+          "type": "string",
+          "default": "",
+          "description": "OpenRouter API Key"
+        },
+        "ursaCoder.mcpServerUrl": {
+          "type": "string",
+          "default": "http://localhost:8000/mcp",
+          "description": "URSA MCP Server URL"
+        }
+      }
+    }
+  },
+  "scripts": {
+    "vscode:prepublish": "npm run compile",
+    "compile": "tsc -p ./",
+    "watch": "tsc -watch -p ./",
+    "pretest": "npm run compile && npm run lint",
+    "lint": "eslint src --ext ts",
+    "test": "vscode-test"
+  },
+  "devDependencies": {
+    "@types/chai": "^5.2.3",
+    "@types/mocha": "^10.0.6",
+    "@types/node": "18.x",
+    "@types/sinon": "^21.0.0",
+    "@types/vscode": "^1.85.0",
+    "@typescript-eslint/eslint-plugin": "^6.15.0",
+    "@typescript-eslint/parser": "^6.15.0",
+    "@vscode/test-cli": "^0.0.4",
+    "@vscode/test-electron": "^2.3.8",
+    "chai": "^6.2.2",
+    "eslint": "^8.56.0",
+    "sinon": "^21.0.3",
+    "typescript": "^5.3.3"
+  },
+  "dependencies": {
+    "@modelcontextprotocol/sdk": "^1.29.0",
+    "openai": "^6.33.0"
+  }
+}
