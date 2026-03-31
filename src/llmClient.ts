@@ -61,11 +61,11 @@ export class LLMClient {
    * Test connection to the LLM API
    * Returns latency in milliseconds or throws error
    */
-  async testConnection(): Promise<number> {
+  async testConnection(modelId?: string): Promise<number> {
     const start = Date.now();
     await this.complete({
       messages: [{ role: 'user', content: 'Respond with OK' }],
-      model: 'test'
+      model: modelId
     });
     return Date.now() - start;
   }

@@ -57,10 +57,24 @@ export class Orchestrator {
     // Add mode-specific system prompt
     const systemPrompt = mode === 'plan'
       ? "You are in PLAN MODE. You can only propose plans, search for information, and read data. Do NOT attempt to execute code or modify files. Use tools like 'plan' and 'arxiv_search' only."
-      : `You are a VS Code Automation Agent. You HAVE access to tools.
-If the user asks to create a file or run a command, you MUST NOT write a markdown code block.
-Instead, you MUST invoke the 'execute' or 'write_to_file' tool.
-Your response should ONLY contain the tool call. Do not explain your actions unless the tool fails.`;
+      : `You are a VS Code Automation Agent with access to tools for executing commands and modifying files.
+
+CRITICAL TOOL USAGE RULES:
+1. When using a tool, output ONLY the JSON object - nothing else.
+2. Do NOT wrap the JSON in markdown code blocks.
+3. Do NOT add conversational text before or after the JSON.
+4. The JSON must have this exact format: {"name": "tool_name", "arguments": {...}}
+
+Example correct tool call:
+{"name": "execute", "arguments": {"command": "ls -la"}}
+
+Example WRONG (do not do this):
+Sure, I'll run that command:
+\`\`\`json
+{"name": "execute", "arguments": {"command": "ls -la"}}
+\`\`\`
+
+After the tool executes, you will receive the result and can then respond conversationally.`;
 
     // Get available tools from MCP bridge
     const availableTools = await this.mcpBridge.listTools();
@@ -188,8 +202,48 @@ Your response should ONLY contain the tool call. Do not explain your actions unl
       }
     }
 
-    // Fallback: Detect markdown code blocks in the response (for "lazy" models)
-    if (mode === 'act' && response.content) {
+    // Text-to-Tool Parsing: Check if response contains JSON tool call in plain text
+    if (mode === 'act' && response.content && this.toolApprovalCallback) {
+      // Try to extract JSON that looks like a tool call
+      const jsonMatch = response.content.match(/\{[\s\S]*?"name"[\s\S]*?"arguments"[\s\S]*?\}/);
+      
+      if (jsonMatch) {
+        try {
+          const toolCallJson = JSON.parse(jsonMatch[0]);
+          
+          if (toolCallJson.name && toolCallJson.arguments) {
+            console.log(`[Orchestrator] Detected JSON tool call in text response:`, toolCallJson);
+            
+            // Generate a unique ID for this tool call
+            const toolCallId = `text-tool-${Date.now()}`;
+            
+            // Store pending tool call
+            this.pendingToolCalls.set(toolCallId, { 
+              name: toolCallJson.name, 
+              args: toolCallJson.arguments 
+            });
+            
+            // Request approval from UI
+            const approved = await this.toolApprovalCallback({
+              toolName: toolCallJson.name,
+              toolArgs: toolCallJson.arguments,
+              toolCallId: toolCallId
+            });
+            
+            if (!approved) {
+              this.pendingToolCalls.delete(toolCallId);
+              return `Tool execution cancelled by user.`;
+            }
+            
+            // Return approval marker
+            return '__APPROVAL_REQUESTED__';
+          }
+        } catch (e) {
+          console.warn(`[Orchestrator] Failed to parse JSON from text response:`, e);
+        }
+      }
+      
+      // Fallback: Detect markdown code blocks
       const codeBlockMatch = response.content.match(/```(?:bash|sh|shell)?\n([\s\S]+?)\n```/);
       if (codeBlockMatch) {
         const command = codeBlockMatch[1].trim();

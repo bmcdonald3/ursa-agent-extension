@@ -59,7 +59,7 @@ export function activate(context: vscode.ExtensionContext) {
 
       // Test LLM
       try {
-        const latency = await llmClient.testConnection();
+        const latency = await llmClient.testConnection(modelId);
         testResults.llm = { status: 'connected', latency };
         vscode.window.showInformationMessage(
           `✅ LLM Connected (${latency}ms) - ${detectedProvider} / ${modelId}`
