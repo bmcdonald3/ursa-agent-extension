@@ -37,6 +37,10 @@
       {
         "command": "ursa-coder.start",
         "title": "URSA Coder: Start"
+      },
+      {
+        "command": "ursa-coder.forceTest",
+        "title": "URSA Coder: Force Test Direct MCP Connection"
       }
     ],
     "configuration": {

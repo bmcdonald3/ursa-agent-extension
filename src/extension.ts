@@ -49,6 +49,33 @@ export function activate(context: vscode.ExtensionContext) {
     })
   );
 
+  // Register force test command (bypass LLM, direct MCP call)
+  context.subscriptions.push(
+    vscode.commands.registerCommand('ursa-coder.forceTest', async () => {
+      vscode.window.showInformationMessage('🚀 Force testing direct MCP connection...');
+      
+      try {
+        // Connect to MCP server if not already connected
+        await mcpBridge.connect(mcpServerUrl);
+        
+        // Direct tool call bypassing LLM
+        const result = await mcpBridge.callTool('write_to_file', {
+          path: '/Users/ben.mcdonald/ursa-test-direct.txt',
+          content: 'Forced from VS Code command palette'
+        });
+        
+        vscode.window.showInformationMessage(
+          `✅ Force Test Successful! File written. Result: ${JSON.stringify(result)}`
+        );
+      } catch (error) {
+        vscode.window.showErrorMessage(
+          `❌ Force Test Failed: ${error instanceof Error ? error.message : String(error)}`
+        );
+        console.error('[ForceTest] Error:', error);
+      }
+    })
+  );
+
   // Register test connection command
   context.subscriptions.push(
     vscode.commands.registerCommand('ursa-coder.testConnection', async () => {

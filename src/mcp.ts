@@ -45,16 +45,23 @@ export class McpBridge {
     console.log(`[McpBridge] Calling tool: ${name}`);
     console.log(`[McpBridge] Tool arguments:`, JSON.stringify(args, null, 2));
     
+    const payload = {
+      tool: name,
+      arguments: args
+    };
+    
+    console.log(`[McpBridge] 🚀 SENDING REQUEST TO URSA SERVER`);
+    console.log(`[McpBridge] URL: ${this.ursaUrl}/call`);
+    console.log(`[McpBridge] Method: POST`);
+    console.log(`[McpBridge] Payload:`, JSON.stringify(payload, null, 2));
+    
     try {
       const response = await fetch(`${this.ursaUrl}/call`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
         },
-        body: JSON.stringify({
-          tool: name,
-          arguments: args
-        })
+        body: JSON.stringify(payload)
       });
 
       if (!response.ok) {
