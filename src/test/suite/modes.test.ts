@@ -2,17 +2,17 @@ import * as assert from 'assert';
 import * as sinon from 'sinon';
 import { Orchestrator } from '../../orchestrator';
 import { McpBridge } from '../../mcp';
-import { OpenRouterClient } from '../../openrouter';
+import { LLMClient } from '../../llmClient';
 
 suite('Plan/Act Mode Constraints Test Suite', () => {
     let orchestrator: Orchestrator;
     let mcpBridge: McpBridge;
-    let openRouterClient: OpenRouterClient;
+    let llmClient: LLMClient;
 
     setup(() => {
-        openRouterClient = new OpenRouterClient('test_key');
+        llmClient = new LLMClient('test_key', 'https://openrouter.ai/api/v1');
         mcpBridge = new McpBridge();
-        orchestrator = new Orchestrator(openRouterClient, mcpBridge);
+        orchestrator = new Orchestrator(llmClient, mcpBridge, 'test-model');
     });
 
     test('Orchestrator should NOT call execute tool when in Plan mode', async () => {
@@ -21,7 +21,7 @@ suite('Plan/Act Mode Constraints Test Suite', () => {
             content: "I will now run the code.",
             toolCalls: [{ name: 'execute', arguments: { command: 'rm -rf /' } }]
         };
-        sinon.stub(openRouterClient, 'complete').resolves(rogueModelResponse);
+        sinon.stub(llmClient, 'complete').resolves(rogueModelResponse);
         const mcpSpy = sinon.spy(mcpBridge, 'callTool');
 
         try {
@@ -40,7 +40,7 @@ suite('Plan/Act Mode Constraints Test Suite', () => {
             content: "Here is the plan.",
             toolCalls: [{ name: 'plan', arguments: { task: 'test' } }]
         };
-        sinon.stub(openRouterClient, 'complete').resolves(planResponse);
+        sinon.stub(llmClient, 'complete').resolves(planResponse);
         const mcpStub = sinon.stub(mcpBridge, 'callTool').resolves({ result: 'plan created' });
 
         await orchestrator.processPrompt("Give me a plan", "plan");

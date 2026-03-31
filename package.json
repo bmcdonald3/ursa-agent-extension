@@ -42,10 +42,32 @@
     "configuration": {
       "title": "URSA Coder",
       "properties": {
+        "ursaCoder.provider": {
+          "type": "string",
+          "enum": ["openrouter", "ollama", "groq", "custom"],
+          "default": "openrouter",
+          "description": "AI provider preset",
+          "enumDescriptions": [
+            "OpenRouter - Access multiple models via one API",
+            "Ollama - Local models on your machine",
+            "Groq - Fast cloud inference",
+            "Custom - Manual configuration"
+          ]
+        },
+        "ursaCoder.apiUrl": {
+          "type": "string",
+          "default": "https://openrouter.ai/api/v1",
+          "description": "LLM API endpoint URL"
+        },
+        "ursaCoder.modelId": {
+          "type": "string",
+          "default": "anthropic/claude-3.5-sonnet",
+          "description": "Model identifier (e.g., 'llama3.2' for Ollama, 'anthropic/claude-3.5-sonnet' for OpenRouter)"
+        },
         "ursaCoder.apiKey": {
           "type": "string",
           "default": "",
-          "description": "OpenRouter API Key"
+          "description": "API Key (not required for Ollama)"
         },
         "ursaCoder.mcpServerUrl": {
           "type": "string",

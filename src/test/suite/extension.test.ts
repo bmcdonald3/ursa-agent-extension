@@ -1,26 +1,29 @@
 import * as assert from 'assert';
 import * as sinon from 'sinon';
-import { OpenRouterClient } from '../../openrouter';
+import { LLMClient } from '../../llmClient';
 import { McpBridge } from '../../mcp';
 import { Orchestrator } from '../../orchestrator';
 
 suite('URSA-Coder Integration Test Suite', () => {
-    let openRouterClient: OpenRouterClient;
+    let llmClient: LLMClient;
     let mcpBridge: McpBridge;
     let orchestrator: Orchestrator;
 
     setup(() => {
-        openRouterClient = new OpenRouterClient('test_api_key');
+        llmClient = new LLMClient('test_api_key', 'https://openrouter.ai/api/v1', {
+            'HTTP-Referer': 'https://github.com/ursa-coder',
+            'X-Title': 'URSA Coder VS Code Extension'
+        });
         mcpBridge = new McpBridge();
-        orchestrator = new Orchestrator(openRouterClient, mcpBridge);
+        orchestrator = new Orchestrator(llmClient, mcpBridge, 'test-model');
     });
 
     teardown(() => {
         sinon.restore();
     });
 
-    test('OpenRouterClient configures correct baseURL and headers', () => {
-        const config = openRouterClient.getConfig();
+    test('LLMClient configures correct baseURL and headers', () => {
+        const config = llmClient.getConfig();
         assert.strictEqual(config.baseURL, 'https://openrouter.ai/api/v1');
         assert.ok(config.defaultHeaders['HTTP-Referer']);
         assert.ok(config.defaultHeaders['X-Title']);
@@ -58,7 +61,7 @@ suite('URSA-Coder Integration Test Suite', () => {
             content: "The task is complete.",
             toolCalls: []
         };
-        sinon.stub(openRouterClient, 'complete').resolves(llmResponse);
+        sinon.stub(llmClient, 'complete').resolves(llmResponse);
         const mcpSpy = sinon.spy(mcpBridge, 'callTool');
 
         const finalOutput = await orchestrator.processPrompt("Summarize the project status.");

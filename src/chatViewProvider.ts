@@ -8,7 +8,9 @@ export class ChatViewProvider implements vscode.WebviewViewProvider {
 
   constructor(
     private readonly _extensionUri: vscode.Uri,
-    private readonly _orchestrator: Orchestrator
+    private readonly _orchestrator: Orchestrator,
+    private readonly _modelId: string,
+    private readonly _provider: string
   ) {}
 
   public resolveWebviewView(
@@ -31,6 +33,13 @@ export class ChatViewProvider implements vscode.WebviewViewProvider {
     });
   }
 
+  public updateConnectionStatus(results: any) {
+    this._view?.webview.postMessage({
+      type: 'connectionStatus',
+      results
+    });
+  }
+
   private async _onDidReceiveMessage(message: any) {
     switch (message.command) {
       case 'switchMode':
@@ -39,6 +48,16 @@ export class ChatViewProvider implements vscode.WebviewViewProvider {
           type: 'modeChanged',
           mode: this._currentMode
         });
+        break;
+
+      case 'clickModel':
+        // Trigger the switch provider command
+        vscode.commands.executeCommand('ursa-coder.switchProvider');
+        break;
+
+      case 'testConnection':
+        // Trigger test connection command
+        vscode.commands.executeCommand('ursa-coder.testConnection');
         break;
 
       case 'sendPrompt':
@@ -71,6 +90,9 @@ export class ChatViewProvider implements vscode.WebviewViewProvider {
   }
 
   private _getHtmlForWebview(webview: vscode.Webview) {
+    const modelName = this._modelId;
+    const providerName = this._provider.charAt(0).toUpperCase() + this._provider.slice(1);
+    
     return `<!DOCTYPE html>
 <html lang="en">
 <head>
@@ -84,6 +106,65 @@ export class ChatViewProvider implements vscode.WebviewViewProvider {
       font-family: var(--vscode-font-family);
       color: var(--vscode-foreground);
       background-color: var(--vscode-editor-background);
+    }
+
+    .status-bar {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      padding: 8px;
+      background-color: var(--vscode-sideBar-background);
+      border-bottom: 1px solid var(--vscode-widget-border);
+      font-size: 11px;
+    }
+
+    .model-info {
+      cursor: pointer;
+      padding: 4px 8px;
+      border-radius: 4px;
+      transition: background-color 0.2s;
+    }
+
+    .model-info:hover {
+      background-color: var(--vscode-list-hoverBackground);
+    }
+
+    .connection-status {
+      display: flex;
+      gap: 6px;
+      align-items: center;
+    }
+
+    .status-icon {
+      font-size: 8px;
+      color: var(--vscode-descriptionForeground);
+    }
+
+    .status-icon.connected {
+      color: var(--vscode-terminal-ansiGreen);
+    }
+
+    .status-icon.failed {
+      color: var(--vscode-terminal-ansiRed);
+    }
+
+    .status-icon.testing {
+      color: var(--vscode-terminal-ansiYellow);
+    }
+
+    .test-btn {
+      margin: 4px 8px;
+      padding: 4px 8px;
+      font-size: 11px;
+      background-color: var(--vscode-button-secondaryBackground);
+      color: var(--vscode-button-secondaryForeground);
+      border: 1px solid var(--vscode-button-border);
+      border-radius: 4px;
+      cursor: pointer;
+    }
+
+    .test-btn:hover {
+      background-color: var(--vscode-button-secondaryHoverBackground);
     }
 
     .mode-switcher {
@@ -122,7 +203,7 @@ export class ChatViewProvider implements vscode.WebviewViewProvider {
     }
 
     .chat-container {
-      height: calc(100vh - 120px);
+      height: calc(100vh - 180px);
       overflow-y: auto;
       padding: 12px;
       display: flex;
@@ -208,6 +289,17 @@ export class ChatViewProvider implements vscode.WebviewViewProvider {
   </style>
 </head>
 <body>
+  <div class="status-bar">
+    <div class="model-info" id="modelIndicator" title="Click to switch provider/model">
+      🤖 <span id="modelName">${modelName}</span> (<span id="providerName">${providerName}</span>)
+    </div>
+    <div class="connection-status">
+      <span class="status-icon" id="llmStatus" title="LLM API">●</span>
+      <span class="status-icon" id="mcpStatus" title="URSA MCP">●</span>
+    </div>
+  </div>
+  <button id="testConnectionBtn" class="test-btn">🔌 Test Connection</button>
+  
   <div class="mode-switcher">
     <button class="mode-btn active" data-mode="plan" id="planBtn">📋 Plan</button>
     <button class="mode-btn" data-mode="act" id="actBtn">⚡ Act</button>
@@ -223,6 +315,16 @@ export class ChatViewProvider implements vscode.WebviewViewProvider {
   <script>
     const vscode = acquireVsCodeApi();
     let currentMode = 'plan';
+
+    // Model indicator click handler
+    document.getElementById('modelIndicator').addEventListener('click', () => {
+      vscode.postMessage({ command: 'clickModel' });
+    });
+
+    // Test connection button
+    document.getElementById('testConnectionBtn').addEventListener('click', () => {
+      vscode.postMessage({ command: 'testConnection' });
+    });
 
     // Mode switcher
     document.querySelectorAll('.mode-btn').forEach(btn => {
@@ -315,6 +417,34 @@ export class ChatViewProvider implements vscode.WebviewViewProvider {
         case 'error':
           addMessage(message.message, 'error');
           sendBtn.disabled = false;
+          break;
+
+        case 'connectionStatus':
+          // Update connection status indicators
+          const llmStatus = document.getElementById('llmStatus');
+          const mcpStatus = document.getElementById('mcpStatus');
+          
+          if (message.results.llm.status === 'connected') {
+            llmStatus.classList.add('connected');
+            llmStatus.classList.remove('failed', 'testing');
+          } else if (message.results.llm.status === 'failed') {
+            llmStatus.classList.add('failed');
+            llmStatus.classList.remove('connected', 'testing');
+          } else {
+            llmStatus.classList.add('testing');
+            llmStatus.classList.remove('connected', 'failed');
+          }
+
+          if (message.results.mcp.status === 'connected') {
+            mcpStatus.classList.add('connected');
+            mcpStatus.classList.remove('failed', 'testing');
+          } else if (message.results.mcp.status === 'failed') {
+            mcpStatus.classList.add('failed');
+            mcpStatus.classList.remove('connected', 'testing');
+          } else {
+            mcpStatus.classList.add('testing');
+            mcpStatus.classList.remove('connected', 'failed');
+          }
           break;
       }
     });

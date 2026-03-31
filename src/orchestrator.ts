@@ -1,4 +1,4 @@
-import { OpenRouterClient } from './openrouter';
+import { LLMClient } from './llmClient';
 import { McpBridge } from './mcp';
 
 // Tool access control lists
@@ -7,8 +7,9 @@ const BLOCKED_TOOLS_IN_PLAN = ['execute', 'write', 'delete', 'modify', 'run'];
 
 export class Orchestrator {
   constructor(
-    private openRouterClient: OpenRouterClient,
-    private mcpBridge: McpBridge
+    private llmClient: LLMClient,
+    private mcpBridge: McpBridge,
+    private modelId: string
   ) {}
 
   async processPrompt(prompt: string, mode: 'plan' | 'act' = 'plan'): Promise<string> {
@@ -18,11 +19,12 @@ export class Orchestrator {
       : "You are in ACT MODE. You have full access to execute code and modify files.";
 
     // Call the LLM with the mode-aware prompt
-    const response = await this.openRouterClient.complete({
+    const response = await this.llmClient.complete({
       messages: [
         { role: 'system', content: modePrefix },
         { role: 'user', content: prompt }
-      ]
+      ],
+      model: this.modelId
     });
 
     // Check if the response contains tool calls
