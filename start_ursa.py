@@ -1,12 +1,15 @@
 import sys
 import os
 
-# 1. The URSA/Ollama Trick: Treat Ollama as an OpenAI endpoint
-os.environ["OPENAI_API_KEY"] = "ollama"
-os.environ["OPENAI_BASE_URL"] = "http://localhost:11434/v1"
-
-# 2. Tell URSA to use the OpenAI provider, but with your local model
+# 1. Force the URSA configuration to use Ollama via the OpenAI-compatible endpoint
+# Using the URSA_LLM_MODEL__ prefix ensures these populate the ModelConfig object directly.
 os.environ["URSA_LLM_MODEL__MODEL"] = "openai:qwen2.5-coder"
+os.environ["URSA_LLM_MODEL__BASE_URL"] = "http://localhost:11434/v1"
+
+# 2. Set the API key to 'ollama' as recommended in URSA's documentation
+# We use a custom env var and point URSA to it to avoid 'not-needed' collisions.
+os.environ["MY_OLLAMA_KEY"] = "ollama"
+os.environ["URSA_LLM_MODEL__API_KEY_ENV"] = "MY_OLLAMA_KEY"
 
 # 3. Network settings for the MCP server
 os.environ["FASTMCP_HOST"] = "localhost"
@@ -19,7 +22,6 @@ from fastmcp import FastMCP
 def fixed_as_mcp_server(self, **kwargs):
     mcp = FastMCP("URSA")
     for name, agent in self.agents.items():
-        # URSA's internal method to map agents to MCP tools
         mcp.tool(
             self._make_agent_tool(name),
             name=name,
@@ -32,5 +34,6 @@ HITL.as_mcp_server = fixed_as_mcp_server
 # 5. Start the Server
 from ursa.cli import main
 if __name__ == "__main__":
+    # Explicitly set sys.argv to ignore any local config files
     sys.argv = ["ursa", "mcp-server", "--transport", "streamable-http"]
     main()
