@@ -602,7 +602,7 @@ export class ChatViewProvider implements vscode.WebviewViewProvider {
           break;
 
         case 'toolExecuted':
-          addMessage('Tool Result:\n' + message.result, 'ai');
+          addMessage('Tool Result:\\n' + message.result, 'ai');
           sendBtn.disabled = false;
           break;
 
