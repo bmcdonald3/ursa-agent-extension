@@ -1,10 +1,8 @@
 import subprocess
 from fastmcp import FastMCP
 
-# 1. Create a Direct Tool server (Bypassing URSA Agents for now)
-mcp = FastMCP("URSA-Direct-Tools")
+mcp = FastMCP("URSA-Direct")
 
-# 2. Expose raw, functional tools directly to the MCP bridge
 @mcp.tool()
 def write_to_file(path: str, content: str) -> str:
     """Write content to a specific file path."""
@@ -24,7 +22,6 @@ def run_command(command: str) -> str:
     except Exception as e:
         return f"Command execution failed: {str(e)}"
 
-# 3. Start the Server
 if __name__ == "__main__":
-    print("🚀 Starting Direct Tools MCP Server on http://localhost:8000/mcp")
+    print("Starting Direct Tools MCP Server on http://localhost:8000/mcp")
     mcp.run(transport="streamable-http")

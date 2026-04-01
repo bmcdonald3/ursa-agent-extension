@@ -1,9 +1,6 @@
 import { LLMClient } from './llmClient';
 import { McpBridge, ToolDefinition } from './mcp';
 
-const PLAN_MODE_ALLOWED_TOOLS = ['plan', 'arxiv_search', 'search', 'read', 'list', 'read_file', 'list_files'];
-const BLOCKED_TOOLS_IN_PLAN = ['execute', 'write', 'delete', 'modify', 'run', 'write_to_file'];
-
 export interface ToolApprovalRequest {
   toolName: string;
   toolArgs: Record<string, any>;
@@ -24,7 +21,6 @@ export class Orchestrator {
 
   setAutonomousMode(enabled: boolean) {
     this.autonomousMode = enabled;
-    console.log(`[Orchestrator] Autonomous mode ${enabled ? 'ENABLED' : 'DISABLED'}`);
   }
 
   setToolStatusCallback(callback: (status: string) => void) {
@@ -44,7 +40,7 @@ export class Orchestrator {
     const { name, args } = toolCall;
     
     if (this.toolStatusCallback) {
-      this.toolStatusCallback(`[URSA] Executing ${name}...`);
+      this.toolStatusCallback(`Executing ${name}...`);
     }
 
     try {
@@ -58,13 +54,12 @@ export class Orchestrator {
   }
 
   async processPrompt(prompt: string, mode: 'plan' | 'act' = 'plan'): Promise<string> {
-    const systemPrompt = mode === 'plan'
-      ? "You are in PLAN MODE. You can only propose plans, search for information, and read data. Do NOT attempt to execute code or modify files."
-      : "You are a VS Code Automation Agent. Use native tool calls for execution.";
+    const systemPrompt = `You are a VS Code Automation Agent.
+CRITICAL INSTRUCTION: You must use tools to accomplish tasks. 
+If you cannot use native tool calls, output EXACTLY this JSON format and nothing else:
+{"name": "tool_name", "arguments": {"param1": "value1"}}`;
 
     const availableTools = await this.mcpBridge.listTools();
-    
-    // Fixed mapping: Convert MCP tools to OpenAI format with 'type' and 'function'
     const tools = availableTools.map((tool: ToolDefinition) => ({
       type: 'function' as const,
       function: {
@@ -87,36 +82,47 @@ export class Orchestrator {
     });
 
     if (response.toolCalls && response.toolCalls.length > 0) {
-      if (mode === 'act' && this.autonomousMode) {
-        const toolResults: any[] = [];
-        for (const toolCall of response.toolCalls) {
-          const toolName = toolCall.function.name;
-          const args = JSON.parse(toolCall.function.arguments);
-          try {
-            const result = await this.mcpBridge.callTool(toolName, args);
-            toolResults.push({
-              role: 'tool',
-              tool_call_id: toolCall.id,
-              name: toolName,
-              content: JSON.stringify(result)
-            });
-          } catch (error) {
-            toolResults.push({ role: 'tool', tool_call_id: toolCall.id, name: toolName, content: String(error) });
-          }
-        }
-        messages.push({ role: 'assistant', content: response.content || '' });
-        messages = messages.concat(toolResults);
-        const finalResponse = await this.llmClient.complete({ messages, model: this.modelId });
-        return finalResponse.content;
-      }
-      
       if (mode === 'act' && this.toolApprovalCallback) {
         for (const toolCall of response.toolCalls) {
-          this.pendingToolCalls.set(toolCall.id, { name: toolCall.function.name, args: JSON.parse(toolCall.function.arguments) });
-          const approved = await this.toolApprovalCallback({ toolName: toolCall.function.name, toolArgs: JSON.parse(toolCall.function.arguments), toolCallId: toolCall.id });
-          if (!approved) return `Tool execution cancelled by user.`;
+          const args = JSON.parse(toolCall.function.arguments);
+          this.pendingToolCalls.set(toolCall.id, { name: toolCall.function.name, args });
+          const approved = await this.toolApprovalCallback({ toolName: toolCall.function.name, toolArgs: args, toolCallId: toolCall.id });
+          if (!approved) return `Tool execution cancelled.`;
         }
         return '__APPROVAL_REQUESTED__';
+      }
+    }
+
+    // BUG 2 FIX: Robust JSON Extraction
+    if (response.content && this.toolApprovalCallback) {
+      const firstBrace = response.content.indexOf('{');
+      const lastBrace = response.content.lastIndexOf('}');
+      
+      if (firstBrace !== -1 && lastBrace !== -1 && lastBrace > firstBrace) {
+        const jsonStr = response.content.substring(firstBrace, lastBrace + 1);
+        
+        if (mode === 'plan') {
+          return `I have formulated a plan to use a tool. Please switch to ACT mode to execute it.\n\nProposed Tool Call:\n${jsonStr}`;
+        }
+
+        try {
+          const toolCallJson = JSON.parse(jsonStr);
+          if (toolCallJson.name && toolCallJson.arguments) {
+            const toolCallId = `text-tool-${Date.now()}`;
+            this.pendingToolCalls.set(toolCallId, { name: toolCallJson.name, args: toolCallJson.arguments });
+            
+            const approved = await this.toolApprovalCallback({
+              toolName: toolCallJson.name,
+              toolArgs: toolCallJson.arguments,
+              toolCallId: toolCallId
+            });
+            
+            if (!approved) return `Tool execution cancelled.`;
+            return '__APPROVAL_REQUESTED__';
+          }
+        } catch (e) {
+          console.warn(`Failed to parse JSON from text:`, e);
+        }
       }
     }
 
