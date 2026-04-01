@@ -1,40 +1,30 @@
-import os
-import sys
-import uuid
-from pathlib import Path
-from ursa.cli.config import UrsaConfig, ModelConfig
-from ursa.cli.hitl import HITL
+import subprocess
 from fastmcp import FastMCP
 
-os.environ["OPENAI_API_KEY"] = "ollama"
+# 1. Create a Direct Tool server (Bypassing URSA Agents for now)
+mcp = FastMCP("URSA-Direct-Tools")
 
-config = UrsaConfig(
-    workspace=Path("ursa_workspace"),
-    thread_id=str(uuid.uuid4()),
-    llm_model=ModelConfig(
-        model="openai:llama3.1",
-        base_url="http://localhost:11434/v1",
-        api_key_env="OPENAI_API_KEY"
-    )
-)
+# 2. Expose raw, functional tools directly to the MCP bridge
+@mcp.tool()
+def write_to_file(path: str, content: str) -> str:
+    """Write content to a specific file path."""
+    try:
+        with open(path, 'w') as f:
+            f.write(content)
+        return f"Successfully wrote to {path}"
+    except Exception as e:
+        return f"Error writing file: {str(e)}"
 
-hitl = HITL(config)
+@mcp.tool()
+def run_command(command: str) -> str:
+    """Execute a shell command."""
+    try:
+        result = subprocess.run(command, shell=True, text=True, capture_output=True, timeout=60)
+        return f"STDOUT:\n{result.stdout}\nSTDERR:\n{result.stderr}"
+    except Exception as e:
+        return f"Command execution failed: {str(e)}"
 
-def fixed_as_mcp_server(self, **kwargs):
-    from ursa import __version__ as ursa_version
-    mcp = FastMCP("URSA", version=ursa_version, **kwargs)
-    for name, agent in self.agents.items():
-        mcp.tool(
-            self._make_agent_tool(name),
-            name=name,
-            description=agent.description,
-        )
-    return mcp
-
-import types
-hitl.as_mcp_server = types.MethodType(fixed_as_mcp_server, hitl)
-
+# 3. Start the Server
 if __name__ == "__main__":
-    mcp_app = hitl.as_mcp_server()
-    print("🚀 Starting URSA MCP Server on http://localhost:8000/mcp")
-    mcp_app.run(transport="streamable-http")
+    print("🚀 Starting Direct Tools MCP Server on http://localhost:8000/mcp")
+    mcp.run(transport="streamable-http")

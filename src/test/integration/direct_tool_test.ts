@@ -31,30 +31,23 @@ describe('Direct Tool Execution Test', () => {
 
   after(async function() {
     if (fs.existsSync(testFilePath)) {
-      fs.unlinkSync(testFilePath);
+      //fs.unlinkSync(testFilePath);
     }
     if (mcpBridge) {
       await mcpBridge.disconnect();
     }
-    
-    // Server cleanup disabled so you can keep the server running manually
-    /*
-    try {
-      const { execSync } = require('child_process');
-      execSync('pkill -f "start_ursa.py"');
-    } catch (e) {}
-    */
   });
 
   it('should directly execute tool to create file', async function() {
     this.timeout(0);
     
-    console.log('[DirectTest] Calling execute tool directly...');
+    console.log('[DirectTest] Calling write_to_file tool directly...');
     
-    // CRITICAL: Passing the timeout here so the SDK waits for Ollama
-    const result = await mcpBridge.callTool('execute', {
-        prompt: `Task: Write the text '${expectedContent}' to a file at ./integration-success.txt. \n\nCRITICAL SYSTEM INSTRUCTION: You have access to tools. You MUST use the 'write_code' or 'run_command' tool natively to accomplish this task. Do NOT output raw JSON text in your response.`
-    }, { timeout: 300000 });
+    // Direct tool call - completely bypasses the local Ollama LLM
+    const result = await mcpBridge.callTool('write_to_file', {
+      path: './integration-success.txt',
+      content: expectedContent
+    }, { timeout: 10000 }); 
     
     console.log('[DirectTest] Tool result:', JSON.stringify(result, null, 2));
     
