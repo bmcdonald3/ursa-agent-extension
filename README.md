@@ -1,14 +1,19 @@
 ## Project Goal:
-To build a VS Code extension that natively replicates the "Cline" autonomous developer experience, but powered by the LANL URSA (Universal Reconfigurable Swarm Agents) framework.
+To build a VS Code extension that natively replicates the "Cline" autonomous developer experience, leveraging a robust Python backend for system operations.
 
 ## The Architecture:
-This project bridges three distinct systems to create a closed-loop AI agent:
+This project bridges distinct systems to create a closed-loop AI agent:
 
-The Extension (The Eyes & Ears): A custom VS Code extension providing the UI, chat interface, and Orchestrator. It listens to the LLM's text output, intercepts JSON-formatted tool calls, and presents the user with an Approval Card before execution.
-
-URSA via MCP (The Hands): The Los Alamos National Lab URSA framework, exposed via a FastMCP server. URSA handles the actual system execution (e.g., writing files, running bash commands, analyzing data) using its suite of built-in tools.
-
-Local LLM (The Brain): A locally hosted model (like qwen2.5-coder running on Ollama) that powers URSA's internal reasoning loop, avoiding the need for paid cloud APIs for standard tool execution.
+* **The Extension (The Brain & Eyes):** A custom VS Code extension providing the UI, chat interface, and Orchestrator. It connects to an LLM (local or cloud) to process user requests, intercepts JSON-formatted tool calls, and presents the user with an Approval Card before execution.
+* **FastMCP Server (The Hands):** A Python-based server exposing direct system operations (writing files, running bash commands) via the Model Context Protocol (MCP).
+* **The Communication Layer:** The extension's `McpBridge` securely passes approved JSON payloads to the Python server for instant, hallucination-free execution.
 
 ## Current Status:
-The Extension UI and Orchestrator successfully generate tool calls and render approval cards. The MCP connection to URSA is established. We are currently resolving the final link: ensuring URSA's internal execute agent correctly routes its reasoning queries to the local Ollama instance via the OpenAI-compatible /v1 endpoint.
+**Phase 1 Complete:** The core execution loop is fully functional. The Orchestrator successfully catches LLM-generated tool payloads, renders approval cards in the UI, and executes raw Python tools via FastMCP. 
+
+We are currently running a "Direct Tool" architecture (bypassing URSA's internal LangGraph swarm) to guarantee execution stability and eliminate text-to-tool degradation from local models.
+
+## Next Steps:
+1. Parse the MCP JSON return payloads in the UI to display clean success/error strings.
+2. Expand the Python FastMCP server to include `read_file`, `list_directory`, and `delete_file`.
+3. Evaluate whether to maintain the Direct Tool architecture or re-attempt integration with LANL URSA's multi-agent swarm framework.
