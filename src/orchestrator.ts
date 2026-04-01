@@ -15,12 +15,18 @@ export class Orchestrator {
   private toolStatusCallback?: (status: string) => void;
   private toolApprovalCallback?: (request: ToolApprovalRequest) => Promise<boolean>;
   private pendingToolCalls: Map<string, any> = new Map();
+  private autonomousMode: boolean = false;
 
   constructor(
     private llmClient: LLMClient,
     private mcpBridge: McpBridge,
     private modelId: string
   ) {}
+
+  setAutonomousMode(enabled: boolean) {
+    this.autonomousMode = enabled;
+    console.log(`[Orchestrator] Autonomous mode ${enabled ? 'ENABLED' : 'DISABLED'}`);
+  }
 
   setToolStatusCallback(callback: (status: string) => void) {
     this.toolStatusCallback = callback;
@@ -109,7 +115,52 @@ After the tool executes, you will receive the result and can then respond conver
 
     // Check if the response contains tool calls
     if (response.toolCalls && response.toolCalls.length > 0) {
-      // In Act mode, request approval for tool execution
+      // In Act mode with autonomous mode enabled, auto-execute immediately
+      if (mode === 'act' && this.autonomousMode) {
+        console.log(`[Orchestrator] Autonomous mode: auto-executing ${response.toolCalls.length} tool calls`);
+        
+        const toolResults: Array<{ role: string; content: string; tool_call_id?: string; name?: string }> = [];
+        
+        for (const toolCall of response.toolCalls) {
+          const toolName = toolCall.function.name;
+          const args = JSON.parse(toolCall.function.arguments);
+          
+          console.log(`[Orchestrator] Auto-executing tool: ${toolName}`);
+          
+          try {
+            const result = await this.mcpBridge.callTool(toolName, args);
+            toolResults.push({
+              role: 'tool',
+              tool_call_id: toolCall.id,
+              name: toolName,
+              content: JSON.stringify(result)
+            });
+          } catch (error) {
+            toolResults.push({
+              role: 'tool',
+              tool_call_id: toolCall.id,
+              name: toolName,
+              content: `ERROR: ${error instanceof Error ? error.message : String(error)}`
+            });
+          }
+        }
+        
+        // Send results back to LLM
+        messages.push({
+          role: 'assistant',
+          content: response.content || ''
+        });
+        messages = messages.concat(toolResults as any);
+        
+        const finalResponse = await this.llmClient.complete({
+          messages,
+          model: this.modelId
+        });
+        
+        return finalResponse.content;
+      }
+      
+      // In Act mode without autonomous mode, request approval for tool execution
       if (mode === 'act' && this.toolApprovalCallback) {
         for (const toolCall of response.toolCalls) {
           const toolName = toolCall.function.name;

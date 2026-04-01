@@ -1,5 +1,5 @@
 import { Client } from '@modelcontextprotocol/sdk/client/index.js';
-import { SSEClientTransport } from '@modelcontextprotocol/sdk/client/sse.js';
+import { StreamableHTTPClientTransport } from '@modelcontextprotocol/sdk/client/streamableHttp.js';
 
 export interface ToolDefinition {
   name: string;
@@ -20,11 +20,13 @@ export class McpBridge {
     console.log(`[McpBridge] Connecting to URSA MCP server at: ${url}`);
     this.ursaUrl = url;
     
+    const timeoutMs = 10000; // 10 second timeout
+    
     try {
-      // Create SSE transport for URSA server
-      const transport = new SSEClientTransport(new URL(url));
+      // Create StreamableHTTP transport for FastMCP server
+      const transport = new StreamableHTTPClientTransport(new URL(url));
       
-      // Create and connect MCP client
+      // Create MCP client
       this.client = new Client({
         name: 'ursa-coder-extension',
         version: '1.0.0'
@@ -32,11 +34,26 @@ export class McpBridge {
         capabilities: {}
       });
       
-      await this.client.connect(transport);
-      console.log(`[McpBridge] ✅ Connected to MCP server via SSE`);
+      // Connect with timeout
+      const connectPromise = this.client.connect(transport);
+      const timeoutPromise = new Promise((_, reject) => 
+        setTimeout(() => reject(new Error('Connection timeout after 10s')), timeoutMs)
+      );
       
-      // List available tools
-      const toolsResponse = await this.client.listTools();
+      await Promise.race([connectPromise, timeoutPromise]);
+      console.log(`[McpBridge] ✅ Connected to MCP server`);
+      
+      // Wait a moment for server to be ready
+      await new Promise(resolve => setTimeout(resolve, 500));
+      
+      // List available tools with timeout
+      const listToolsPromise = this.client.listTools();
+      const listTimeoutPromise = new Promise<never>((_, reject) =>
+        setTimeout(() => reject(new Error('listTools timeout after 10s')), timeoutMs)
+      );
+      
+      const toolsResponse = await Promise.race([listToolsPromise, listTimeoutPromise]);
+      
       this.availableTools = toolsResponse.tools.map(tool => ({
         name: tool.name,
         description: tool.description || '',
@@ -44,6 +61,10 @@ export class McpBridge {
       }));
       
       console.log(`[McpBridge] Found ${this.availableTools.length} tools:`, this.availableTools.map(t => t.name));
+      
+      if (this.availableTools.length === 0) {
+        console.warn(`[McpBridge] ⚠️ No tools found from URSA server`);
+      }
     } catch (error) {
       console.error(`[McpBridge] ❌ Connection failed:`, error);
       throw error;

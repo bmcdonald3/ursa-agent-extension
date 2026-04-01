@@ -1,0 +1,28 @@
+
+
+                              ╭──────────────────────────────────────────────────────────────────────────────╮                               
+                              │                                                                              │                               
+                              │                                                                              │                               
+                              │                         ▄▀▀ ▄▀█ █▀▀ ▀█▀ █▀▄▀█ █▀▀ █▀█                        │                               
+                              │                         █▀  █▀█ ▄▄█  █  █ ▀ █ █▄▄ █▀▀                        │                               
+                              │                                                                              │                               
+                              │                                                                              │                               
+                              │                                FastMCP 3.2.0                                 │                               
+                              │                            https://gofastmcp.com                             │                               
+                              │                                                                              │                               
+                              │                  🖥  Server:      URSA, 3.2.0                                 │                               
+                              │                  🚀 Deploy free: https://horizon.prefect.io                  │                               
+                              │                                                                              │                               
+                              ╰──────────────────────────────────────────────────────────────────────────────╯                               
+
+
+[04/01/26 05:54:36] INFO     Starting MCP server 'URSA' with transport 'streamable-http' on http://127.0.0.1:8000/mcp        transport.py:299
+INFO:     Started server process [19056]
+INFO:     Waiting for application startup.
+INFO:     Application startup complete.
+INFO:     Uvicorn running on http://127.0.0.1:8000 (Press CTRL+C to quit)
+INFO:     127.0.0.1:58686 - "POST /mcp HTTP/1.1" 200 OK
+INFO:     Shutting down
+INFO:     Waiting for application shutdown.
+INFO:     Application shutdown complete.
+INFO:     Finished server process [19056]

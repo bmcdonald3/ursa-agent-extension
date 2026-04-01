@@ -1,0 +1,45 @@
+
+
+                              ╭──────────────────────────────────────────────────────────────────────────────╮                               
+                              │                                                                              │                               
+                              │                                                                              │                               
+                              │                         ▄▀▀ ▄▀█ █▀▀ ▀█▀ █▀▄▀█ █▀▀ █▀█                        │                               
+                              │                         █▀  █▀█ ▄▄█  █  █ ▀ █ █▄▄ █▀▀                        │                               
+                              │                                                                              │                               
+                              │                                                                              │                               
+                              │                                FastMCP 3.2.0                                 │                               
+                              │                            https://gofastmcp.com                             │                               
+                              │                                                                              │                               
+                              │                  🖥  Server:      URSA, 3.2.0                                 │                               
+                              │                  🚀 Deploy free: https://horizon.prefect.io                  │                               
+                              │                                                                              │                               
+                              ╰──────────────────────────────────────────────────────────────────────────────╯                               
+
+
+[04/01/26 05:57:32] INFO     Starting MCP server 'URSA' with transport 'streamable-http' on http://127.0.0.1:8000/mcp        transport.py:299
+INFO:     Started server process [20741]
+INFO:     Waiting for application startup.
+INFO:     Application startup complete.
+INFO:     Uvicorn running on http://127.0.0.1:8000 (Press CTRL+C to quit)
+INFO:     127.0.0.1:59147 - "POST /mcp HTTP/1.1" 200 OK
+INFO:     127.0.0.1:59149 - "POST /mcp HTTP/1.1" 202 Accepted
+INFO:     127.0.0.1:59147 - "GET /mcp HTTP/1.1" 200 OK
+INFO:     127.0.0.1:59149 - "POST /mcp HTTP/1.1" 200 OK
+INFO:     127.0.0.1:59156 - "POST /mcp HTTP/1.1" 200 OK
+Error:  404 page not found (status code: 404)   Write the text 'Cline verified this' to a file at ./integration-success.txt
+Error:  404 page not found (status code: 404)   
+You are a summarizing agent.  You have a user/assistant conversation as they work through a complex problem requiring multiple steps.
+
+Your responsibilities is to write a condensed summary of the conversation.
+    - Keep all important points from the conversation.
+    - Ensure the summary responds to the goals of the original query.
+    - Summarize all the work that was carried out to meet those goals
+    - Highlight any places where those goals were not achieved and why.
+
+╭────────────────────────────────────────────────────────────── Recap of Work ──────────────────────────────────────────────────────────────╮
+│ Response error 404 page not found (status code: 404)                                                                                      │
+╰───────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────╯
+INFO:     Shutting down
+INFO:     Waiting for application shutdown.
+INFO:     Application shutdown complete.
+INFO:     Finished server process [20741]

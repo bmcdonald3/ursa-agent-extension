@@ -6,8 +6,17 @@ from fastmcp import FastMCP
 # 1. Monkey-patch URSA to be compatible with FastMCP 3.0+
 def fixed_as_mcp_server(self, **kwargs):
     # FastMCP 3.0+ constructor ONLY takes the name.
-    # We ignore everything else (host, port, on_duplicate, etc.)
-    return FastMCP("URSA")
+    mcp = FastMCP("URSA")
+    
+    # Register all URSA agents as tools
+    for name, agent in self.agents.items():
+        mcp.tool(
+            self._make_agent_tool(name),
+            name=name,
+            description=agent.description or f"URSA {name} agent"
+        )
+    
+    return mcp
 
 HITL.as_mcp_server = fixed_as_mcp_server
 
