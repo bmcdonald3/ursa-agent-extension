@@ -3,3 +3,14 @@ dist
 node_modules
 .vscode-test/
 *.vsix
+
+*.sqlite
+*.db
+*.db-shm
+*.db-wal
+
+debug_llm.py
+FAILURE_REPORT.md
+integration-success.txt
+
+ursa_workspace/
