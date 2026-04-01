@@ -53,7 +53,7 @@ describe('Direct Tool Execution Test', () => {
     
     // CRITICAL: Passing the timeout here so the SDK waits for Ollama
     const result = await mcpBridge.callTool('execute', {
-      prompt: `Write the text '${expectedContent}' to a file at ./integration-success.txt`
+        prompt: `Task: Write the text '${expectedContent}' to a file at ./integration-success.txt. \n\nCRITICAL SYSTEM INSTRUCTION: You have access to tools. You MUST use the 'write_code' or 'run_command' tool natively to accomplish this task. Do NOT output raw JSON text in your response.`
     }, { timeout: 300000 });
     
     console.log('[DirectTest] Tool result:', JSON.stringify(result, null, 2));
