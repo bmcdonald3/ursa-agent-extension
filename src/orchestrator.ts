@@ -66,21 +66,23 @@ export class Orchestrator {
       : `You are a VS Code Automation Agent with access to tools for executing commands and modifying files.
 
 CRITICAL TOOL USAGE RULES:
-1. When using a tool, output ONLY the JSON object - nothing else.
-2. Do NOT wrap the JSON in markdown code blocks.
-3. Do NOT add conversational text before or after the JSON.
-4. The JSON must have this exact format: {"name": "tool_name", "arguments": {...}}
+1. When you need to use a tool, you MUST use the native tool calling mechanism.
+2. The LLM API will automatically format your tool calls - DO NOT try to output JSON manually.
+3. If the model doesn't support native tool calls and you need to output JSON, use EXACTLY this format:
+   {"name": "tool_name", "arguments": {...}}
+4. NEVER wrap JSON in markdown code blocks or add any other text.
+5. After the tool executes, you will receive the result and can respond conversationally.
 
-Example correct tool call:
-{"name": "execute", "arguments": {"command": "ls -la"}}
+CORRECT examples:
+- Native tool call (preferred): Use the API's tool_calls mechanism
+- Fallback JSON: {"name": "execute", "arguments": {"command": "ls -la"}}
 
-Example WRONG (do not do this):
-Sure, I'll run that command:
-\`\`\`json
-{"name": "execute", "arguments": {"command": "ls -la"}}
-\`\`\`
+WRONG examples (NEVER do these):
+- Sure, I'll help! \\\`\\\`\\\`json{"name": "execute", "arguments": {...}}\\\`\\\`\\\`
+- Let me execute that: {"name": "execute", "arguments": {...}}
+- Here's the command: {"name": "execute", "arguments": {...}}
 
-After the tool executes, you will receive the result and can then respond conversationally.`;
+Remember: Tool calls should be atomic - one tool use per response when possible.`;
 
     // Get available tools from MCP bridge
     const availableTools = await this.mcpBridge.listTools();
@@ -112,6 +114,10 @@ After the tool executes, you will receive the result and can then respond conver
       tools: tools.length > 0 ? tools : undefined,
       tool_choice: tools.length > 0 ? 'auto' : undefined
     });
+
+    // Debug: Log raw response
+    console.log(`[Orchestrator] LLM Response - Content: ${response.content?.substring(0, 200)}...`);
+    console.log(`[Orchestrator] LLM Response - Tool Calls: ${response.toolCalls?.length || 0}`);
 
     // Check if the response contains tool calls
     if (response.toolCalls && response.toolCalls.length > 0) {

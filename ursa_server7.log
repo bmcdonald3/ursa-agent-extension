@@ -1,0 +1,22 @@
+Traceback (most recent call last):
+  File "/Users/ben.mcdonald/ursa-extenstion/start_ursa.py", line 35, in <module>
+    main()
+  File "/Library/Frameworks/Python.framework/Versions/3.11/lib/python3.11/site-packages/ursa/cli/__init__.py", line 98, in main
+    hitl = HITL(ursa_config)
+           ^^^^^^^^^^^^^^^^^
+  File "/Library/Frameworks/Python.framework/Versions/3.11/lib/python3.11/site-packages/ursa/cli/hitl.py", line 115, in __init__
+    self.model: BaseChatModel = init_chat_model(
+                                ^^^^^^^^^^^^^^^^
+  File "/Library/Frameworks/Python.framework/Versions/3.11/lib/python3.11/site-packages/langchain/chat_models/base.py", line 477, in init_chat_model
+    return _init_chat_model_helper(
+           ^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/Library/Frameworks/Python.framework/Versions/3.11/lib/python3.11/site-packages/langchain/chat_models/base.py", line 499, in _init_chat_model_helper
+    model, model_provider = _parse_model(model, model_provider)
+                            ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/Library/Frameworks/Python.framework/Versions/3.11/lib/python3.11/site-packages/langchain/chat_models/base.py", line 595, in _parse_model
+    raise ValueError(msg)
+ValueError: Unable to infer model provider for model='qwen2.5-coder'. Please specify 'model_provider' directly.
+
+Supported providers: anthropic, anthropic_bedrock, azure_ai, azure_openai, baseten, bedrock, bedrock_converse, cohere, deepseek, fireworks, google_anthropic_vertex, google_genai, google_vertexai, groq, huggingface, ibm, litellm, mistralai, nvidia, ollama, openai, openrouter, perplexity, together, upstage, xai
+
+For help with specific providers, see: https://docs.langchain.com/oss/python/integrations/providers

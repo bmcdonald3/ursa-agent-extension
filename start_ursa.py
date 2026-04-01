@@ -23,8 +23,9 @@ HITL.as_mcp_server = fixed_as_mcp_server
 # 2. Set the Environment Variables for the 2026 version of FastMCP
 os.environ["FASTMCP_HOST"] = "localhost"
 os.environ["FASTMCP_PORT"] = "8000"
-os.environ["OPENAI_API_KEY"] = "ollama"
-os.environ["URSA_LLM_MODEL__MODEL"] = "ollama:qwen2.5-coder"
+os.environ["OPENAI_API_KEY"] = "not-needed"
+os.environ["URSA_LLM_MODEL__MODEL"] = "qwen2.5-coder"
+os.environ["URSA_LLM_MODEL__MODEL_PROVIDER"] = "openai"
 os.environ["URSA_LLM_MODEL__BASE_URL"] = "http://localhost:11434/v1"
 
 # 3. Import and run the actual URSA command
