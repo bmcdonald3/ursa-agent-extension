@@ -9,12 +9,11 @@ describe('Direct Tool Execution Test', () => {
   const expectedContent = 'Cline verified this';
 
   before(async function() {
-    this.timeout(30000);
+    this.timeout(0);
     
     console.log('[DirectTest] Initializing MCP bridge...');
     mcpBridge = new McpBridge();
     
-    // Connect with retry
     let retries = 5;
     while (retries > 0) {
       try {
@@ -38,32 +37,33 @@ describe('Direct Tool Execution Test', () => {
       await mcpBridge.disconnect();
     }
     
+    // Server cleanup disabled so you can keep the server running manually
+    /*
     try {
       const { execSync } = require('child_process');
       execSync('pkill -f "start_ursa.py"');
     } catch (e) {}
+    */
   });
 
   it('should directly execute tool to create file', async function() {
-    this.timeout(30000);
+    this.timeout(0);
     
     console.log('[DirectTest] Calling execute tool directly...');
     
+    // CRITICAL: Passing the timeout here so the SDK waits for Ollama
     const result = await mcpBridge.callTool('execute', {
       prompt: `Write the text '${expectedContent}' to a file at ./integration-success.txt`
-    });
+    }, { timeout: 300000 });
     
-    console.log('[DirectTest] Tool result:', result);
+    console.log('[DirectTest] Tool result:', JSON.stringify(result, null, 2));
     
-    // Wait for file operation
     await new Promise(r => setTimeout(r, 2000));
     
-    // Verify file exists
     console.log('[DirectTest] Checking file:', testFilePath);
     assert.ok(fs.existsSync(testFilePath), 'File was not created');
     console.log('[DirectTest] ✅ File exists');
     
-    // Verify content
     const content = fs.readFileSync(testFilePath, 'utf-8');
     console.log('[DirectTest] File content:', content);
     assert.ok(

@@ -1,36 +1,36 @@
 import sys
 import os
+
+# 1. The URSA/Ollama Trick: Treat Ollama as an OpenAI endpoint
+os.environ["OPENAI_API_KEY"] = "ollama"
+os.environ["OPENAI_BASE_URL"] = "http://localhost:11434/v1"
+
+# 2. Tell URSA to use the OpenAI provider, but with your local model
+os.environ["URSA_LLM_MODEL__MODEL"] = "openai:qwen2.5-coder"
+
+# 3. Network settings for the MCP server
+os.environ["FASTMCP_HOST"] = "localhost"
+os.environ["FASTMCP_PORT"] = "8000"
+
+# 4. Patch FastMCP 3.2 compatibility
 from ursa.cli.hitl import HITL
 from fastmcp import FastMCP
 
-# 1. Monkey-patch URSA to be compatible with FastMCP 3.0+
 def fixed_as_mcp_server(self, **kwargs):
-    # FastMCP 3.0+ constructor ONLY takes the name.
     mcp = FastMCP("URSA")
-    
-    # Register all URSA agents as tools
     for name, agent in self.agents.items():
+        # URSA's internal method to map agents to MCP tools
         mcp.tool(
             self._make_agent_tool(name),
             name=name,
             description=agent.description or f"URSA {name} agent"
         )
-    
     return mcp
 
 HITL.as_mcp_server = fixed_as_mcp_server
 
-# 2. Set the Environment Variables for the 2026 version of FastMCP
-os.environ["FASTMCP_HOST"] = "localhost"
-os.environ["FASTMCP_PORT"] = "8000"
-os.environ["OPENAI_API_KEY"] = "not-needed"
-os.environ["URSA_LLM_MODEL__MODEL"] = "qwen2.5-coder"
-os.environ["URSA_LLM_MODEL__MODEL_PROVIDER"] = "openai"
-os.environ["URSA_LLM_MODEL__BASE_URL"] = "http://localhost:11434/v1"
-
-# 3. Import and run the actual URSA command
+# 5. Start the Server
 from ursa.cli import main
 if __name__ == "__main__":
-    # Simulate running 'ursa mcp-server --transport streamable-http'
     sys.argv = ["ursa", "mcp-server", "--transport", "streamable-http"]
     main()

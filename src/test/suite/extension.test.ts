@@ -64,7 +64,10 @@ suite('URSA-Coder Integration Test Suite', () => {
     });
 
     test('McpBridge formats tool execution requests correctly', async () => {
-        const executeStub = sinon.stub(mcpBridge, 'callTool').resolves({ result: 'success' });
+        const executeStub = sinon.stub(mcpBridge, 'callTool').resolves({ 
+         toolResult: { result: 'success' }, 
+         content: [{ type: 'text', text: 'success' }] 
+        });
         
         const response = await mcpBridge.callTool('execute', { command: 'ls -la' });
         
