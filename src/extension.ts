@@ -5,7 +5,7 @@ import { Orchestrator } from './orchestrator';
 import { ChatViewProvider } from './chatViewProvider';
 import { PROVIDER_PRESETS, detectProvider } from './providerPresets';
 
-export function activate(context: vscode.ExtensionContext) {
+export async function activate(context: vscode.ExtensionContext) {
   const config = vscode.workspace.getConfiguration('ursaCoder');
   const provider = config.get<string>('provider') || 'openrouter';
   const apiKey = config.get<string>('apiKey') || '';
@@ -21,8 +21,23 @@ export function activate(context: vscode.ExtensionContext) {
   const mcpBridge = new McpBridge();
   const orchestrator = new Orchestrator(llmClient, mcpBridge, modelId);
 
-  // BUG 1 FIX: Auto-connect to MCP immediately on startup
-  mcpBridge.connect(mcpServerUrl).catch(err => {
+  mcpBridge.connect(mcpServerUrl).then(async () => {
+    console.log('[Extension] Connected to MCP');
+    
+    // Auto-indexing logic
+    const workspaceFolders = vscode.workspace.workspaceFolders;
+    if (workspaceFolders && workspaceFolders.length > 0) {
+      const rootPath = workspaceFolders[0].uri.fsPath;
+      try {
+        console.log(`[Extension] Starting auto-index for: ${rootPath}`);
+        // Calling the tool directly through the bridge
+        await mcpBridge.callTool('index_project', { root_path: rootPath });
+        vscode.window.showInformationMessage('URSA Coder: Codebase indexed successfully.');
+      } catch (err) {
+        console.error('[Extension] Auto-index failed:', err);
+      }
+    }
+  }).catch(err => {
     console.error('[Extension] Auto-connect to MCP failed:', err);
   });
   
