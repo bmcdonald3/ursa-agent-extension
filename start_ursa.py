@@ -9,7 +9,7 @@ mcp = FastMCP("URSA-Direct")
 
 # Initialize ChromaDB
 client = chromadb.PersistentClient(path="./ursa_rag_db")
-emb_fn = embedding_functions.SentenceTransformerEmbeddingFunction(model_name="all-MiniLM-L6-v2")
+emb_fn = embedding_functions.DefaultEmbeddingFunction()
 collection = client.get_or_create_collection(name="project_code", embedding_function=emb_fn)
 
 def get_chunks(path, content):
